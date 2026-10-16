@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+#
+# ccne - Compile C and Execute
+#
+# Usage:
+#   ccne <file.c> [program arguments...]
+#
+# Example:
+#   ccne comparingStructs.c
+#   -> runs: gcc comparingStructs.c -o comparingStructs.out && ./comparingStructs.out
+
+# ---- Configuration: change the compiler here (e.g. gcc, clang, tcc) ----
+COMPILER="gcc"
+# -------------------------------------------------------------------------
+
+SCRIPT_NAME="$(basename "$0")"
+
+# 1. Make sure a source file was given
+if [ $# -eq 0 ]; then
+    echo "Usage: $SCRIPT_NAME <file.c> [program arguments...]" >&2
+    exit 1
+fi
+
+SRC="$1"
+shift  # whatever is left in "$@" gets passed to the compiled program
+
+# 2. Make sure the source file exists and is a regular file
+if [ ! -e "$SRC" ]; then
+    echo "$SCRIPT_NAME: error: file '$SRC' not found." >&2
+    exit 1
+fi
+
+if [ ! -f "$SRC" ]; then
+    echo "$SCRIPT_NAME: error: '$SRC' is not a regular file." >&2
+    exit 1
+fi
+
+# 3. Make sure it looks like a C source file
+case "$SRC" in
+    *.c) ;;
+    *)
+        echo "$SCRIPT_NAME: error: '$SRC' does not end in .c" >&2
+        exit 1
+        ;;
+esac
+
+# 4. Make sure the compiler is actually installed
+if ! command -v "$COMPILER" > /dev/null 2>&1; then
+    echo "$SCRIPT_NAME: error: compiler '$COMPILER' not found." >&2
+    echo "Install it, or change the COMPILER variable at the top of $0." >&2
+    exit 127
+fi
+
+# 5. Work out the output name: dir/foo.c -> dir/foo.out
+OUT="${SRC%.c}.out"
+
+# 6. Compile. If it fails, stop here and don't try to run anything.
+if ! "$COMPILER" "$SRC" -o "$OUT"; then
+    echo "$SCRIPT_NAME: compilation of '$SRC' failed." >&2
+    exit 1
+fi
+
+# 7. Make sure the shell treats the output as a path, not a command name
+case "$OUT" in
+    */*) ;;
+    *) OUT="./$OUT" ;;
+esac
+
+# 8. Run it, and exit with the program's own exit status
+"$OUT" "$@"
+exit $?
