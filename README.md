@@ -1,17 +1,43 @@
-# CCNE
-or **C Compile aNd Execute** is a command line utility written in bash that compiles and executes C source file in a single step\
-Generated using Claude
+# ccne
 
-## How to execute
-`ccne <filename.c>`
-- Usage example - `ccne foo.c`
+Compile and execute a C file, then wait. Every time you save the file, it recompiles and runs it again.
 
-## How it executes
-CCNE compiles the provided C source code into object file with the same name in the current working directory
-- For example - `foo.c` to `foo.out`
+```bash
+ccne main.c
+```
 
-After which it simply executes the `.out` file or `./foo.out`
+## Install
 
-## Compiler configuration
-CCNE, by default, uses Gnu C Compiler or **GCC**\
-If one wishes to use other compiler, simply edit the global variable `COMPILER`
+```bash
+mkdir -p ~/.local/bin
+cp ccne ~/.local/bin/ && chmod +x ~/.local/bin/ccne
+```
+
+Requires Linux, `bash`, GNU `stat`, and a C compiler (`cc` by default).
+
+## Usage
+
+```
+ccne [-1|--once] <file.c> [program arguments...]
+```
+
+```bash
+ccne main.c            # rerun on every save (Ctrl+C to stop)
+ccne main.c 5 10       # pass arguments to the program
+ccne --once main.c     # run once and exit with the program's exit code
+```
+
+Output goes to `main.out` next to the source. If compilation fails, the errors are shown and `ccne` waits for the next save.
+
+## Configuration
+
+Edit the top of the script:
+
+- `COMPILER` is the compiler command (default `cc`).
+- `POLL_INTERVAL` is the seconds between save checks (default `0.5`).
+- `CLEAR_SCREEN` clears the terminal before each rerun (default `true`).
+
+## Limitations
+
+- Compiles one `.c` file, with no extra compiler flags.
+- Waits for the program to exit before watching for saves. If it never exits, quit it with Ctrl+C and start `ccne` again.
