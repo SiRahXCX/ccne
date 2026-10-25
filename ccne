@@ -1,23 +1,40 @@
 #!/usr/bin/env bash
 #
-# ccne - Compile C and Execute
+# ccne - Compile C and Execute (watch mode)
 #
 # Usage:
-#   ccne <file.c> [program arguments...]
+#   ccne [-1|--once] <file.c> [program arguments...]
+#
+# By default ccne keeps running: it compiles and runs the file, then waits.
+# Every time you save the .c file, it recompiles and runs it again.
+# Press Ctrl+C to stop.
+#
+# Options:
+#   -1, --once   compile and run a single time, then exit with the program's
+#                own exit status (the old behaviour)
 #
 # Example:
 #   ccne comparingStructs.c
 #   -> runs: gcc comparingStructs.c -o comparingStructs.out && ./comparingStructs.out
+#      and repeats whenever comparingStructs.c is saved
 
-# ---- Configuration: change the compiler here (e.g. gcc, clang, tcc) ----
-COMPILER="gcc"
-# -------------------------------------------------------------------------
+# ---- Configuration -------------------------------------------------------
+COMPILER="gcc"        # change the compiler here (e.g. gcc, clang, tcc)
+POLL_INTERVAL=0.5     # seconds between checks for a saved file
+CLEAR_SCREEN=false    # clear the terminal before each re-run (true/false)
+# --------------------------------------------------------------------------
 
 SCRIPT_NAME="$(basename "$0")"
+ONCE=false
+
+# 0. Optional flag
+case "${1:-}" in
+    -1|--once) ONCE=true; shift ;;
+esac
 
 # 1. Make sure a source file was given
 if [ $# -eq 0 ]; then
-    echo "Usage: $SCRIPT_NAME <file.c> [program arguments...]" >&2
+    echo "Usage: $SCRIPT_NAME [-1|--once] <file.c> [program arguments...]" >&2
     exit 1
 fi
 
@@ -54,18 +71,71 @@ fi
 # 5. Work out the output name: dir/foo.c -> dir/foo.out
 OUT="${SRC%.c}.out"
 
-# 6. Compile. If it fails, stop here and don't try to run anything.
-if ! "$COMPILER" "$SRC" -o "$OUT"; then
-    echo "$SCRIPT_NAME: compilation of '$SRC' failed." >&2
-    exit 1
-fi
-
-# 7. Make sure the shell treats the output as a path, not a command name
+# Make sure the shell treats the output as a path, not a command name
 case "$OUT" in
-    */*) ;;
-    *) OUT="./$OUT" ;;
+    */*) RUN="$OUT" ;;
+    *)   RUN="./$OUT" ;;
 esac
 
-# 8. Run it, and exit with the program's own exit status
-"$OUT" "$@"
-exit $?
+# Last-modified timestamp of the source file (empty if it is briefly missing,
+# which can happen for a split second while some editors save)
+get_mtime() {
+    stat -c %y "$SRC" 2>/dev/null
+}
+
+# Compile, then run. Sets RAN=true only if the program actually ran.
+compile_and_run() {
+    RAN=false
+    if ! "$COMPILER" "$SRC" -o "$OUT"; then
+        echo "$SCRIPT_NAME: compilation of '$SRC' failed." >&2
+        return 1
+    fi
+    RAN=true
+    "$RUN" "$@"
+    return $?
+}
+
+# ---- Single-run mode ----
+if [ "$ONCE" = true ]; then
+    compile_and_run "$@"
+    exit $?
+fi
+
+# ---- Watch mode ----
+trap 'echo; echo "$SCRIPT_NAME: stopped."; exit 0' INT
+
+first=true
+while true; do
+    # Remember the timestamp BEFORE compiling, so a save that happens while
+    # the program is running triggers another run straight away.
+    last="$(get_mtime)"
+
+    if [ "$first" = false ]; then
+    	echo -e "\n"
+    fi
+
+    if [ "$first" = false ] && [ "$CLEAR_SCREEN" = true ] && [ -t 1 ]; then
+        clear
+    fi
+    first=false
+
+    compile_and_run "$@"
+    status=$?
+
+    echo
+    if [ "$RAN" = true ]; then
+        echo -e "\nexit status $status"
+    fi
+    echo -n "ctrl+c to terminate"
+
+    # Wait until the file's timestamp changes
+    while true; do
+        now="$(get_mtime)"
+        if [ -n "$now" ] && [ "$now" != "$last" ]; then
+            break
+        fi
+        sleep "$POLL_INTERVAL"
+    done
+
+    sleep 0.2   # give the editor a moment to finish writing
+done
