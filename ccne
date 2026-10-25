@@ -19,7 +19,7 @@
 #      and repeats whenever comparingStructs.c is saved
 
 # ---- Configuration -------------------------------------------------------
-COMPILER="gcc"        # change the compiler here (e.g. gcc, clang, tcc)
+COMPILER="cc"        # change the compiler here (e.g. gcc, clang, tcc)
 POLL_INTERVAL=0.5     # seconds between checks for a saved file
 CLEAR_SCREEN=false    # clear the terminal before each re-run (true/false)
 # --------------------------------------------------------------------------
