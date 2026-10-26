@@ -1,6 +1,6 @@
 # ccne
 
-Compile and execute a C file, then wait. Every time you save the file, it recompiles and runs it again.
+**C**ompile **C** a**N**d **E**xecute compiles and execute a C file, then wait. Every time you save the file, it recompiles and runs it again.
 
 ```bash
 ccne main.c
